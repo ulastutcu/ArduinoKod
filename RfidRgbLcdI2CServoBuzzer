@@ -1,0 +1,108 @@
+//Kodlar Ulaş Tutcu tarafından hazırlanmıştır.
+//Kodlarda Emeği Geçen "Ömer Faruk Uçar ve İlayda Adıgüzel (gri kafa)'ya Teşekkürlerimi Sunarım :) 
+//Geliştirilmek üzere alınan kodlarda İsimlerin geçmesi önemle arz olunur :)
+//Kolay Gelsin
+
+
+//RFID + RGB LED + BUZZER + LCD(I2C) + SERVO// KAPI KİLİT SİSTEMİ// ULAŞ TUTCU
+
+
+#include <SPI.h>
+#include <RFID.h>
+#include <Servo.h>
+#include <LiquidCrystal_I2C_AvrI2C.h>  //LCD Kütüphanesini ekledik
+
+LiquidCrystal_I2C_AvrI2C lcd(0x27,16,2); //LCD Belirttik
+
+const byte kled = 7;  //LED ve Buzzer'i tanımladık
+const byte yled = 6;
+const byte buzzer = 4;
+
+Servo kilit;  // Servo motorumuza isim verdik
+RFID rfid(10,9);
+
+byte kart[5] = {86,0,46,158,230};  //Kapıyı Açıcak Kartın ID'si
+
+boolean izin = true;
+
+void setup() 
+{
+  Serial.begin(9600); //Serial Portu başlattık
+
+  SPI.begin(); //SPI haberleşmeyi başlattık
+  rfid.init(); //RFID'i başlattık
+  lcd.begin(); //LCD'yi başlattık
+  lcd.backlight(); //LCD'nin Işıgını açtık
+
+  pinMode(kled, OUTPUT);  // RGB LED ve Buzzer'in çıkış atamalarını ayarladık
+  pinMode(yled, OUTPUT);
+  pinMode(buzzer, OUTPUT);
+
+  kilit.attach(3);  // Servo'muzun Bağlı Olduğu Pin
+}
+
+void loop() 
+{
+  izin=true;   // izin 
+  if(rfid.isCard())
+  {
+    if(rfid.readCardSerial())   //RFID kartın seri numaranı okur ve SerialPort ekranına yazar
+    {
+      
+      Serial.print("Kart bulundu ID: ");
+      Serial.print(rfid.serNum[0]);
+      Serial.print(",");
+      Serial.print(rfid.serNum[1]);
+      Serial.print(",");
+      Serial.print(rfid.serNum[2]);
+      Serial.print(",");
+      Serial.print(rfid.serNum[3]);
+      Serial.print(",");
+      Serial.println(rfid.serNum[4]);
+     
+    }
+    for(int i=0; i<5; i++)
+    {
+      if(rfid.serNum[i] != kart[i])  //RFID okuduğu numara doğru değilse...
+      {
+        izin = false;
+      }
+    }
+    if(izin==true)  //RFID okuduğu numara doğru ise KAPI AÇILIR
+    {
+      Serial.println("Kart Onaylandı = KAPI ACILDI");
+      digitalWrite(yled, HIGH);
+      digitalWrite(buzzer, HIGH);
+      delay(800);
+      
+      
+      lcd.setCursor(2,0);
+      lcd.print("IZIN VERILDI       ");
+      lcd.setCursor(1,1);
+      lcd.print("KAPI ACILDI");
+      delay(800);
+      lcd.clear();
+      digitalWrite(yled, LOW);
+      digitalWrite(buzzer, LOW);
+      kilit.write(20);
+      delay(1000);
+      kilit.write(90);
+    }
+    else  //RFID numara yanlış ise KAPI AÇILMAZ
+    {
+     Serial.println("Kart Onaylanmadı = KAPI ACILMADI");
+     digitalWrite(kled, HIGH);
+     digitalWrite(buzzer, HIGH);
+     delay(800);
+     lcd.setCursor(2,0);
+     lcd.print("IZINSIZ GIRIS     ");
+     lcd.setCursor(1,1);
+     lcd.print("KAPI ACILAMADI !");
+     delay(800);
+     lcd.clear();
+     digitalWrite(kled, LOW);
+     digitalWrite(buzzer, LOW);
+    }
+    rfid.halt();
+  }
+}
